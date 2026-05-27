@@ -1,0 +1,19 @@
+# Environment
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+
+# Cache files — not committed
+*.csv
+snirh_cache/
+logs/
+
+# macOS
+.DS_Store
