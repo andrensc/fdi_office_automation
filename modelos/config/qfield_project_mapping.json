@@ -1,0 +1,84 @@
+{
+  "_comment": "QField cloud folder → SIG project mapping. property_name is read from property_boundaries.gpkg → Limites da Propriedade.name. Manual overrides fill gaps where auto-discovery fails.",
+  "cloud_base": "/Users/g/QField/cloud",
+  "sig_base": "/Users/g/Sync/FdI/SIG",
+  "notas_gpkg_relative": "inputs_project/project_vector_data/Notas.gpkg",
+  "central_notas_gpkg": "/Users/g/Sync/FdI/SIG/outputs_admin/notas_all_projects.gpkg",
+  "log_dir": "/Users/g/Sync/FdI/SIG/logs",
+  "projects": {
+    "Florestas_de_Iroko__Rectificacao_-_Fonte_da_Arcada": {
+      "property_name": "Fonte da Arcada",
+      "sig_project_folder": "/Users/g/Sync/FdI/SIG/SIG_Fonte da Arcada",
+      "qgs_project_title": "Rectificacao - Fonte da Arcada (QFieldCloud)"
+    },
+    "Florestas_de_Iroko__Rectificacao_Artosas": {
+      "property_name": "Artosas",
+      "sig_project_folder": "/Users/g/Sync/FdI/SIG/SIG_Artosas",
+      "qgs_project_title": "Rectificacao - Quinta das Artosas (QFieldCloud)"
+    }
+  },
+  "notes_tables": {
+    "points": [
+      "pontos_notaveis",
+      "Pontos Notaveis"
+    ],
+    "lines": [
+      "linhas_notaveis",
+      "Linhas Notaveis"
+    ],
+    "areas": [
+      "areas",
+      "Areas Notaveis"
+    ]
+  },
+  "target_schema": {
+    "points_fields": [
+      "fid",
+      "geom",
+      "name",
+      "notes",
+      "uuid",
+      "user_creator",
+      "user_last_mod",
+      "date_created",
+      "date_last_mod",
+      "note_fixed",
+      "note_fixed_notes"
+    ],
+    "lines_fields": [
+      "fid",
+      "geom",
+      "name",
+      "notes",
+      "uuid",
+      "user_creator",
+      "user_last_mod",
+      "date_created",
+      "date_last_mod"
+    ],
+    "areas_fields": [
+      "fid",
+      "geom",
+      "name",
+      "notes",
+      "uuid",
+      "note_type",
+      "pol_compasso",
+      "pol_centerline_offset",
+      "pol_entrelinha_caminho",
+      "pol_especies",
+      "pol_largura_cama",
+      "pol_largura_cama_e_talude"
+    ],
+    "photo_gallery_fields": [
+      "fid",
+      "notes_photo_uuid",
+      "notes_photo_path",
+      "notes_uuid",
+      "notes_photo_notes",
+      "date_taken",
+      "category"
+    ]
+  },
+  "template_notas_gpkg": "/Users/g/Sync/FdI/SIG/Estrutura Projeto Template/Qfield_Notes/Notas.gpkg"
+}

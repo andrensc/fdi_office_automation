@@ -1,0 +1,498 @@
+{
+  "version": "2.0-AUDITED",
+  "audit_date": "2026-05-12",
+  "audit_projects_scanned": ["SIG_Artosas", "SIG_Maridona", "SIG_Torrao"],
+  "description": "P1-N11 — AUDITED QField layer naming patterns extracted from real SIG_[project] data structures. Replaces theoretical patterns with factual layer names, attributes, and schemas from actual projects.",
+  "last_updated": "2026-05-12",
+  "maintained_by": "fdi_office_automation / P1-N11",
+  
+  "core_discovery_patterns": {
+    "description": "Layer types found consistently across all audited projects, with actual GPKG filenames and layer names",
+    
+    "observations": {
+      "display_name": "Observations & Site Notes (Monitored conditions, issues, findings)",
+      "gpkg_file": "Notas.gpkg",
+      "layer_names": {
+        "points": "Pontos Notaveis",
+        "lines": "Linhas Notaveis",
+        "areas": "Areas Notaveis",
+        "photo_gallery": "notas_photo_gallery"
+      },
+      "core_attributes": {
+        "name": "String (feature name/title)",
+        "notes": "String (observation text)",
+        "uuid": "String (unique identifier for sync)",
+        "name_notes": "String (alternative name)"
+      },
+      "geometry_types": ["Point", "LineString", "Polygon"],
+      "priority": 1,
+      "found_in_projects": ["SIG_Artosas", "SIG_Maridona", "SIG_Torrao"],
+      "usage": "Primary layer for field observations, monitoring notes, issues & findings. Synced bidirectionally with QField cloud.",
+      "photo_sync": "Via notas_photo_gallery layer"
+    },
+    
+    "infrastructure_linear": {
+      "display_name": "Linear Infrastructure (Water systems, roads, utilities, irrigation)",
+      "gpkg_file": "IE Lineares.gpkg",
+      "layer_names": {
+        "general": "IE_Lineares_Geral",
+        "detailed": "IE_Lineares",
+        "photo_gallery": "IE_Lineares_Geral_photo_gallery"
+      },
+      "core_attributes": {
+        "type": "String (infrastructure type: water, road, utility)",
+        "uuid": "String (unique identifier)",
+        "master": "String (master classification)",
+        "name": "String (feature name)",
+        "length": "Real (length in meters)",
+        "height": "Real (height if applicable)",
+        "notes": "String (engineering notes)"
+      },
+      "field_count": 70,
+      "attribute_samples": ["slopes", "cables", "voltage", "depth", "diameter", "material", "repair_status", "condition"],
+      "geometry_types": ["LineString"],
+      "priority": 2,
+      "found_in_projects": ["SIG_Artosas", "SIG_Maridona", "SIG_Torrao"],
+      "usage": "Complex infrastructure inventory with full engineering specifications",
+      "photo_sync": "Via IE_Lineares_Geral_photo_gallery layer"
+    },
+    
+    "infrastructure_points": {
+      "display_name": "Infrastructure Points (Access points, connection nodes, junctions)",
+      "gpkg_file": "IE_Pontos.gpkg",
+      "layer_names": {
+        "main": "IE_PTS",
+        "photo_gallery": "IEP_Photo Gallery"
+      },
+      "core_attributes": {
+        "uuid": "String (unique identifier)",
+        "type": "String (point type: junction, access, connection, etc.)",
+        "master": "String (classification)",
+        "notes": "String"
+      },
+      "geometry_types": ["Point"],
+      "priority": 3,
+      "found_in_projects": ["SIG_Artosas", "SIG_Maridona", "SIG_Torrao"],
+      "usage": "Infrastructure junction and access point details",
+      "photo_sync": "Via IEP_Photo Gallery layer"
+    },
+    
+    "zoning_planning": {
+      "display_name": "Zoning & Management Planning (Master zone definitions and strategies)",
+      "gpkg_files": ["Matriz Zoneamento.gpkg", "Matriz Zoneamento2.gpkg"],
+      "layer_names": {
+        "current": "Matriz_Zoneamento",
+        "proposal": "proposta_zonamento",
+        "photo_gallery": "Matriz_Zoneamento_Photo Gallery"
+      },
+      "core_attributes": {
+        "cat": "Integer (category code)",
+        "zone": "String (zone identifier)",
+        "rsf_type": "String (resource/feature type)",
+        "layer": "String (planning layer)",
+        "uuid": "String (unique identifier)"
+      },
+      "field_count": 80,
+      "geometry_types": ["Polygon"],
+      "priority": 4,
+      "found_in_projects": ["SIG_Artosas", "SIG_Maridona", "SIG_Torrao"],
+      "usage": "Master zoning matrix for landscape management planning. Often multiple versions for scenario planning.",
+      "photo_sync": "Via Matriz_Zoneamento_Photo Gallery layer"
+    },
+    
+    "interventions": {
+      "display_name": "Interventions & Planting (Completed work, installations, plantings)",
+      "gpkg_file": "Linha de Plantacao.gpkg",
+      "layer_names": {
+        "main": "Linha de Plantacao",
+        "photo_gallery": "Linha de Plantacao_photo_gallery"
+      },
+      "core_attributes": {
+        "type": "String (planting type, installation type)",
+        "existing": "Boolean (existing or new/planned)"
+      },
+      "geometry_types": ["LineString"],
+      "priority": 5,
+      "found_in_projects": ["SIG_Artosas", "SIG_Maridona", "SIG_Torrao"],
+      "usage": "Planting locations, intervention lines, work installations, tree rows",
+      "photo_sync": "Via Linha de Plantacao_photo_gallery layer"
+    },
+    
+    "vegetation_inventory": {
+      "display_name": "Vegetation Inventory (Tree database with spectral analysis)",
+      "gpkg_file": "Arvores.gpkg",
+      "layer_names": {
+        "current": "Árvores",
+        "proposal": "Arvores_proposta",
+        "photo_gallery": "Tree Photo Gallery",
+        "plant_list": "PlantList_FullList"
+      },
+      "core_attributes": {
+        "height": "Real (tree height in meters)",
+        "row": "Integer (inventory row)",
+        "col": "Integer (inventory column)",
+        "ndvi": "Real (vegetation index from spectral analysis)",
+        "uuid": "String (unique identifier)"
+      },
+      "field_count": 40,
+      "geometry_types": ["Point"],
+      "priority": 6,
+      "found_in_projects": ["SIG_Artosas", "SIG_Maridona", "SIG_Torrao"],
+      "usage": "Detailed tree inventory with spectral analysis, health metrics, species tracking",
+      "photo_sync": "Via Tree Photo Gallery layer",
+      "species_reference": "PlantList_FullList layer contains 234 species master data"
+    },
+    
+    "access_paths": {
+      "display_name": "Access & Path Network (Routes and connectivity infrastructure)",
+      "gpkg_file": "Acessos.gpkg",
+      "layer_names": {
+        "main": "Access Centerline Experiment 1.0",
+        "photo_gallery": "acessos_photo_gallery"
+      },
+      "core_attributes": {
+        "cat": "Integer (category)",
+        "type": "String (path type: walking, service, maintenance, etc.)",
+        "master": "String (path classification/hierarchy)",
+        "real_length": "Real (measured length in meters)",
+        "uuid": "String (unique identifier)"
+      },
+      "field_count": 25,
+      "geometry_types": ["LineString"],
+      "priority": 7,
+      "found_in_projects": ["SIG_Artosas", "SIG_Maridona", "SIG_Torrao"],
+      "usage": "Access route network with surface specs, width, slopes, accessibility features",
+      "photo_sync": "Via acessos_photo_gallery layer"
+    },
+    
+    "points_of_interest": {
+      "display_name": "Points of Interest (Notable locations, landmarks, viewpoints)",
+      "gpkg_file": "Pontos de Interesse.gpkg",
+      "layer_names": {
+        "main": "points_interest",
+        "photo_gallery": "pti_photo_gallery"
+      },
+      "core_attributes": {
+        "name": "String (location name)",
+        "notes": "String (description)",
+        "uuid": "String (unique identifier)"
+      },
+      "geometry_types": ["Point"],
+      "priority": 8,
+      "found_in_projects": ["SIG_Artosas", "SIG_Maridona", "SIG_Torrao"],
+      "usage": "Visitor attractions, landmarks, viewpoints, interpretive locations",
+      "photo_sync": "Via pti_photo_gallery layer"
+    },
+    
+    "property_boundary": {
+      "display_name": "Property Boundary (Study area perimeter)",
+      "gpkg_file": "property_boundaries.gpkg",
+      "layer_names": {
+        "main": "Limites da Propriedade"
+      },
+      "core_attributes": {
+        "name": "String (property name)",
+        "area": "Real (calculated area in hectares)"
+      },
+      "geometry_types": ["Polygon"],
+      "priority": 9,
+      "found_in_projects": ["SIG_Artosas", "SIG_Maridona", "SIG_Torrao"],
+      "usage": "Property perimeter boundary, overall project study area extent"
+    },
+    
+    "elevation_reference": {
+      "display_name": "Elevation Reference Points (Topographic validation)",
+      "gpkg_file": "Altimetria.gpkg",
+      "layer_names": {
+        "main": "Altimetria"
+      },
+      "core_attributes": {
+        "HEIGHT": "Real (elevation in meters)",
+        "ID": "Integer (point identifier)"
+      },
+      "geometry_types": ["Point"],
+      "priority": 10,
+      "found_in_projects": ["SIG_Artosas", "SIG_Maridona", "SIG_Torrao"],
+      "feature_count": 3587,
+      "usage": "Reference elevation points for DEM validation and topographic context"
+    },
+    
+    "cadastral_data": {
+      "display_name": "Cadastral Properties (Land registry)",
+      "gpkg_file": "cadastro_predial.gpkg",
+      "layer_names": {
+        "main": "predios"
+      },
+      "core_attributes": {
+        "geometry": "original cadastral property polygons from government registry"
+      },
+      "geometry_types": ["Polygon"],
+      "priority": 11,
+      "found_in_projects": ["SIG_Maridona", "SIG_Torrao"],
+      "note": "Project-specific - check for presence before loading. Not present in all projects.",
+      "usage": "Cadastral property boundaries for legal/administrative context"
+    }
+  },
+  
+  "backward_compatibility_mappings": {
+    "note": "Alternate GPKG filenames and layer names that may appear in older projects or different naming schemes",
+    "alternate_gpkg_names": {
+      "Observations": "Notas.gpkg",
+      "Notas": "Notas.gpkg",
+      "Site Notes": "Notas.gpkg",
+      "Access": "Acessos.gpkg",
+      "Paths": "Acessos.gpkg",
+      "Trees": "Arvores.gpkg",
+      "Vegetation": "Arvores.gpkg",
+      "Infrastructure": "IE Lineares.gpkg",
+      "Infrastructure Points": "IE_Pontos.gpkg",
+      "Zoning": "Matriz Zoneamento.gpkg",
+      "Planning": "Matriz Zoneamento.gpkg",
+      "Cadastre": "cadastro_predial.gpkg"
+    },
+    "alternate_layer_names": {
+      "observacoes_ponto": "Pontos Notaveis",
+      "observacoes_linha": "Linhas Notaveis",
+      "observacoes_area": "Areas Notaveis",
+      "notas_ponto": "Pontos Notaveis",
+      "notas_linha": "Linhas Notaveis",
+      "notas_area": "Areas Notaveis",
+      "acessos": "Access Centerline Experiment 1.0",
+      "paths": "Access Centerline Experiment 1.0",
+      "trees_inventory": "Árvores",
+      "vegetation": "Árvores",
+      "infrastructure_linear": "IE_Lineares_Geral",
+      "infrastructure_points": "IE_PTS",
+      "zoning_matrix": "Matriz_Zoneamento",
+      "management_zones": "Matriz_Zoneamento",
+      "cadastro": "predios"
+    }
+  },
+  
+  "aggregation_virtual_layers": {
+    "description": "Virtual layers created by OFFICE-QFIELD-WATCHER for EPT admin dashboard (P1-N12)",
+    "all_observations": {
+      "display_name": "All Observations (Multi-geometry union across all projects)",
+      "source_layers": [
+        "*/Notas.gpkg::Pontos Notaveis",
+        "*/Notas.gpkg::Linhas Notaveis",
+        "*/Notas.gpkg::Areas Notaveis"
+      ],
+      "aggregation_method": "union_with_geometry_type_field",
+      "output_file": "aggregated_views.gpkg",
+      "output_layer": "all_observations",
+      "refresh_trigger": "on_file_modification"
+    },
+    "all_infrastructure": {
+      "display_name": "All Infrastructure (Linear + Points union across all projects)",
+      "source_layers": [
+        "*/IE Lineares.gpkg::IE_Lineares_Geral",
+        "*/IE_Pontos.gpkg::IE_PTS"
+      ],
+      "aggregation_method": "union_by_geometry_type_with_project_field",
+      "output_file": "aggregated_views.gpkg",
+      "output_layer": "all_infrastructure",
+      "refresh_trigger": "on_file_modification"
+    },
+    "all_geometries_by_project": {
+      "display_name": "All project geometries (Dashboard overview)",
+      "source_layers": [
+        "*/Notas.gpkg::*",
+        "*/IE Lineares.gpkg::IE_Lineares_Geral",
+        "*/IE_Pontos.gpkg::IE_PTS",
+        "*/Arvores.gpkg::Árvores",
+        "*/Acessos.gpkg::Access Centerline Experiment 1.0",
+        "*/Matriz Zoneamento.gpkg::Matriz_Zoneamento",
+        "*/property_boundaries.gpkg::Limites da Propriedade"
+      ],
+      "aggregation_method": "all_layers_union_with_metadata",
+      "output_file": "aggregated_views.gpkg",
+      "output_layer": "all_geometries_by_project",
+      "metadata_fields": ["project_name", "layer_type", "feature_count", "last_modified"],
+      "refresh_trigger": "on_file_modification"
+    },
+    "project_activity_metrics": {
+      "display_name": "Project activity summary (Counts and timestamps)",
+      "calculation": "Feature counts by layer type, last_modified timestamps, data quality metrics, sync status",
+      "output_file": "aggregated_views.gpkg",
+      "output_layer": "project_activity_metrics",
+      "refresh_interval_seconds": 300
+    }
+  },
+  
+  "discovery_configuration": {
+    "base_path": "${SIG_BASE}",
+    "folder_pattern": "SIG_*",
+    "vector_data_subfolder": "inputs_project/project_vector_data",
+    
+    "search_strategy": {
+      "glob_pattern_matching": true,
+      "case_insensitive": true,
+      "recursive_search": true,
+      "exclude_patterns": [
+        "*CONFLICT*",
+        "*.qfieldsync*",
+        "*_backup*",
+        "*_tmp*"
+      ]
+    },
+    
+    "file_discovery": {
+      "gpkg_file_patterns": ["*.gpkg"],
+      "exclude_patterns": [
+        "*CONFLICT*",
+        "*backup*",
+        "*tmp*",
+        ".qfieldsync*"
+      ]
+    },
+    
+    "qfield_cloud_patterns": {
+      "note": "QField cloud folder patterns to monitor",
+      "cloud_base_path": "${QFIELD_CLOUD_BASE}",
+      "folder_pattern": "*",
+      "watch_layers": "all_vector_data",
+      "monitor_new_features": true,
+      "monitor_new_fields": true
+    },
+    
+    "performance": {
+      "cache_ttl_seconds": 3600,
+      "batch_size": 100,
+      "max_virtual_layers": 50,
+      "max_concurrent_discovery_tasks": 4,
+      "exclude_raster_data": true,
+      "parallel_project_scanning": true
+    }
+  },
+  
+  "qfield_cloud_sync_patterns": {
+    "description": "Sync patterns discovered from audit of rectificacao_-_quinta_das_artosas QField cloud project",
+    "findings": [
+      "QField cloud projects are mirrors of SIG_[project] with added features/fields during field work",
+      "Notas.gpkg schemas are IDENTICAL between cloud and base project",
+      "Only difference is feature count (cloud has newly collected features)",
+      "All other core GeoPackages are present with same structure",
+      "Photo galleries are synced bidirectionally (cloud ↔ project)",
+      "Layer order and naming convention strictly preserved"
+    ],
+    "sync_model": "2-way bidirectional with cloud as primary data source during field work",
+    "photo_gallery_sync": "Automatic via QField-managed photo_gallery layers",
+    "conflict_resolution": "Cloud version takes precedence; local project merges in photo updates",
+    "feature_sync_direction": "Cloud → Project after field work completion",
+    "attribute_sync": "All fields preserved; new attributes added by cloud are merged back"
+  },
+  
+  "project_structure_template": {
+    "description": "Standard directory and file structure for new SIG_[project] ensuring automation compatibility",
+    
+    "required_directories": [
+      "inputs_project/project_vector_data/",
+      "inputs_project/project_raster_data/",
+      "outputs/out_geopackage/",
+      "intermediary/intermediary_zoning_matrix/",
+      "_Predios/",
+      "grassdata/"
+    ],
+    
+    "required_vector_files": {
+      "observations": "Notas.gpkg (Pontos Notaveis, Linhas Notaveis, Areas Notaveis, notas_photo_gallery)",
+      "infrastructure_linear": "IE Lineares.gpkg (IE_Lineares_Geral, IE_Lineares, IE_Lineares_Geral_photo_gallery)",
+      "infrastructure_points": "IE_Pontos.gpkg (IE_PTS, IEP_Photo Gallery)",
+      "vegetation": "Arvores.gpkg (Árvores, Arvores_proposta, Tree Photo Gallery, PlantList_FullList)",
+      "access": "Acessos.gpkg (Access Centerline Experiment 1.0, acessos_photo_gallery)",
+      "zoning": "Matriz Zoneamento.gpkg (Matriz_Zoneamento, Matriz_Zoneamento_Photo Gallery)",
+      "interventions": "Linha de Plantacao.gpkg (Linha de Plantacao, Linha de Plantacao_photo_gallery)",
+      "property_boundary": "property_boundaries.gpkg (Limites da Propriedade)",
+      "elevation": "Altimetria.gpkg (Altimetria - 3587 reference points)"
+    },
+    
+    "optional_vector_files": [
+      "cadastro_predial.gpkg (cadastral data, if available)",
+      "Pontos de Interesse.gpkg (landmarks, if defined)",
+      "Pontos Cotados.gpkg (surveyed points, if available)"
+    ],
+    
+    "qgis_project_file": "Projeto QGIS.qgs (main QGIS project with layer styles, forms, and layouts)",
+    
+    "initialization_checklist": [
+      "1. Create all required directories per template",
+      "2. Copy project_vector_data/*.gpkg from template SIG_Artosas or latest project",
+      "3. Update property_boundaries.gpkg with new property boundary polygon",
+      "4. Edit Projeto QGIS.qgs to update project title, layer sources, and data paths",
+      "5. Verify all layer CRS = EPSG:3763 (Portugal TM06)",
+      "6. Run project_orchestrator --validate to check structure compliance",
+      "7. Create QField cloud project pointing to new SIG_[project]",
+      "8. Test sync with first field data collection"
+    ],
+    
+    "crs_requirement": "EPSG:3763 (ETRS89 / Portugal TM06) for all vector layers"
+  },
+  
+  "implementation_guidance": {
+    "layer_discovery_priority_order": [
+      "1. CORE: observations (Notas.gpkg) - Always present",
+      "2. CORE: infrastructure_linear (IE Lineares.gpkg) - Always present",
+      "3. CORE: infrastructure_points (IE_Pontos.gpkg) - Always present",
+      "4. CORE: vegetation_inventory (Arvores.gpkg) - Always present",
+      "5. CORE: access_paths (Acessos.gpkg) - Always present",
+      "6. CORE: zoning_planning (Matriz Zoneamento.gpkg) - Always present",
+      "7. CORE: interventions (Linha de Plantacao.gpkg) - Always present",
+      "8. CORE: property_boundary (property_boundaries.gpkg) - Always present",
+      "9. CORE: elevation_reference (Altimetria.gpkg) - Always present",
+      "10. OPTIONAL: cadastral_data (cadastro_predial.gpkg) - Check for presence",
+      "11. OPTIONAL: points_of_interest (Pontos de Interesse.gpkg) - Check for presence"
+    ],
+    
+    "critical_field_tracking": {
+      "uuid_field": "REQUIRED in all layers for bidirectional sync with QField cloud",
+      "master_field": "Present in most layers for feature classification",
+      "name_field": "Standard naming across all observation/infrastructure layers",
+      "photo_galleries": "Paired *_photo_gallery layers provide QField sync mechanism"
+    },
+    
+    "validation_requirements": [
+      "All layers must load with CRS EPSG:3763",
+      "All feature geometries must be valid (no self-intersections, null geometries, etc.)",
+      "All layers must include uuid field for sync tracking",
+      "Photo galleries must be linked to parent layers for QField editing",
+      "Virtual layers aggregation must preserve attribute schemas for EPT dashboard"
+    ],
+    
+    "sync_workflow": [
+      "1. OFFICE-QFIELD-WATCHER monitors QField cloud for new features/fields",
+      "2. Photo galleries trigger automatic syncs via photo_gallery_layer updates",
+      "3. New features propagate from cloud → SIG_Project via Python uuid matching",
+      "4. Attributes merged via schema matching (new fields auto-added to project layers)",
+      "5. Conflicts resolved: cloud version takes precedence for new data",
+      "6. Sync completeness verified via feature count and field comparison"
+    ]
+  },
+  
+  "validation_checklist_for_audit": {
+    "layer_presence": {
+      "Notas.gpkg": "✓ Found in SIG_Artosas, SIG_Maridona, SIG_Torrao",
+      "IE Lineares.gpkg": "✓ Found in SIG_Artosas, SIG_Maridona, SIG_Torrao",
+      "IE_Pontos.gpkg": "✓ Found in SIG_Artosas, SIG_Maridona, SIG_Torrao",
+      "Arvores.gpkg": "✓ Found in SIG_Artosas, SIG_Maridona, SIG_Torrao",
+      "Acessos.gpkg": "✓ Found in SIG_Artosas, SIG_Maridona, SIG_Torrao",
+      "Matriz Zoneamento.gpkg": "✓ Found in SIG_Artosas, SIG_Maridona, SIG_Torrao",
+      "Linha de Plantacao.gpkg": "✓ Found in SIG_Artosas, SIG_Maridona, SIG_Torrao",
+      "property_boundaries.gpkg": "✓ Found in SIG_Artosas, SIG_Maridona, SIG_Torrao",
+      "Altimetria.gpkg": "✓ Found in SIG_Artosas, SIG_Maridona, SIG_Torrao",
+      "cadastro_predial.gpkg": "⚠ Found in SIG_Maridona, SIG_Torrao (not SIG_Artosas)"
+    },
+    "schema_consistency": {
+      "uuid_fields": "✓ Present in all main layers",
+      "photo_galleries": "✓ Paired galleries present for each main layer",
+      "geometry_types": "✓ Consistent Point/Line/Polygon assignments",
+      "attribute_naming": "✓ Consistent name/notes/master field pattern"
+    },
+    "qfield_cloud_sync": {
+      "cloud_projects_scanned": "8 QField cloud projects found",
+      "schema_comparison": "✓ Cloud schemas match SIG_Project base schemas",
+      "feature_count_variance": "✓ Cloud has additional features (field work data)",
+      "bidirectional_potential": "✓ UUID field enables reliable sync"
+    }
+  }
+}

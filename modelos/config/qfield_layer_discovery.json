@@ -1,0 +1,329 @@
+{
+  "version": "2.0",
+  "audit_date": "2026-05-12",
+  "audit_projects_scanned": ["SIG_Artosas", "SIG_Maridona", "SIG_Torrao"],
+  "description": "P1-N11 — AUDITED QField layer naming patterns from real SIG_[project] data structures",
+  "last_updated": "2026-05-12",
+  "maintained_by": "fdi_office_automation / P1-N11",
+  "discovery_patterns": {
+    "observations": {
+      "display_name": "Observations & Site Notes (Monitored conditions)",
+      "gpkg_file": "Notas.gpkg",
+      "core_layers": [
+        "Pontos Notaveis",
+        "Linhas Notaveis", 
+        "Areas Notaveis"
+      ],
+      "photo_gallery_layer": "notas_photo_gallery",
+      "core_attributes": {
+        "name": "String (feature name/title)",
+        "notes": "String (observation text)",
+        "uuid": "String (unique identifier)",
+        "name_notes": "String (alternative name)"
+      },
+      "optional_attributes": {
+        "date": "observation date if present",
+        "observer": "person who made observation",
+        "priority": "priority level",
+        "severity": "problem severity"
+      },
+      "geometry_types": [
+        "Point (Pontos Notaveis)",
+        "LineString (Linhas Notaveis)",
+        "Polygon (Areas Notaveis)"
+      ],
+      "priority": 1,
+      "usage": "Primary layer for field observations, monitoring notes, issues & findings"
+    },
+    "infrastructure_linear": {
+      "display_name": "Linear Infrastructure (Water systems, roads, utilities)",
+      "gpkg_file": "IE Lineares.gpkg",
+      "core_layers": [
+        "IE_Lineares_Geral",
+        "IE_Lineares"
+      ],
+      "photo_gallery_layer": "IE_Lineares_Geral_photo_gallery",
+      "core_attributes": {
+        "type": "String (infrastructure type: water, road, utility, etc.)",
+        "uuid": "String (unique identifier)",
+        "master": "String (master classification)",
+        "name": "String (feature name)",
+        "length": "Real (length in meters)",
+        "height": "Real (height if applicable)",
+        "notes": "String (notes on infrastructure)"
+      },
+      "attribute_notes": "70+ fields tracking: slopes, cables, voltage, depth, diameter, material, repair status, etc.",
+      "geometry_types": [
+        "LineString (main infrastructure alignment)"
+      ],
+      "priority": 2,
+      "usage": "Complex infrastructure inventory with engineering specifications"
+    },
+    "infrastructure_points": {
+      "display_name": "Infrastructure Points (Access points, connection nodes)",
+      "gpkg_file": "IE_Pontos.gpkg",
+      "core_layers": [
+        "IE_PTS"
+      ],
+      "photo_gallery_layer": "IEP_Photo Gallery",
+      "core_attributes": {
+        "uuid": "String",
+        "type": "String (point type: junction, access, connection, etc.)",
+        "master": "String (classification)",
+        "notes": "String"
+      },
+      "geometry_types": [
+        "Point"
+      ],
+      "priority": 3,
+      "usage": "Infrastructure junction and access point details"
+    },
+    "zoning_planning": {
+      "display_name": "Zoning & Management Planning",
+      "gpkg_files": [
+        "Matriz Zoneamento.gpkg",
+        "Matriz Zoneamento2.gpkg"
+      ],
+      "core_layers": [
+        "Matriz_Zoneamento",
+        "proposta_zonamento"
+      ],
+      "photo_gallery_layer": "Matriz_Zoneamento_Photo Gallery",
+      "core_attributes": {
+        "cat": "Integer (category code)",
+        "zone": "String (zone identifier)",
+        "rsf_type": "String (resource/feature type)",
+        "layer": "String (planning layer)",
+        "uuid": "String"
+      },
+      "attribute_notes": "80+ fields encoding full zoning matrix with management strategies",
+      "geometry_types": [
+        "Polygon"
+      ],
+      "priority": 4,
+      "usage": "Master zoning matrix for landscape management planning"
+    },
+    "interventions": {
+      "display_name": "Interventions & Planting (Completed work & planned installations)",
+      "gpkg_file": "Linha de Plantacao.gpkg",
+      "core_layers": [
+        "Linha de Plantacao"
+      ],
+      "photo_gallery_layer": "Linha de Plantacao_photo_gallery",
+      "core_attributes": {
+        "type": "String (planting type, installation type)",
+        "existing": "Boolean (existing or new)"
+      },
+      "geometry_types": [
+        "LineString (planting lines)"
+      ],
+      "priority": 5,
+      "usage": "Planting locations, intervention lines, work installations"
+    },
+    "vegetation_inventory": {
+      "display_name": "Vegetation Inventory (Tree & plant database)",
+      "gpkg_file": "Arvores.gpkg",
+      "core_layers": [
+        "Árvores",
+        "Arvores_proposta"
+      ],
+      "photo_gallery_layer": "Tree Photo Gallery",
+      "reference_layer": "PlantList_FullList (plant species master list)",
+      "core_attributes": {
+        "height": "Real (tree height)",
+        "row": "Integer (inventory row)",
+        "col": "Integer (inventory column)",
+        "ndvi": "Real (vegetation index)",
+        "uuid": "String"
+      },
+      "attribute_notes": "40+ fields tracking: species, health, age, crown, biomass, etc.",
+      "geometry_types": [
+        "Point (tree positions)"
+      ],
+      "priority": 6,
+      "usage": "Detailed tree inventory with spectral analysis and health metrics"
+    },
+    "access_paths": {
+      "display_name": "Access & Path Network (Routes & connectivity)",
+      "gpkg_file": "Acessos.gpkg",
+      "core_layers": [
+        "Access Centerline Experiment 1.0"
+      ],
+      "photo_gallery_layer": "acessos_photo_gallery",
+      "core_attributes": {
+        "cat": "Integer",
+        "type": "String (path type)",
+        "master": "String (path classification)",
+        "real_length": "Real (measured length)",
+        "uuid": "String"
+      },
+      "attribute_notes": "25+ fields tracking surfaces, widths, slopes, accessibility, etc.",
+      "geometry_types": [
+        "LineString (path centerline)"
+      ],
+      "priority": 7,
+      "usage": "Access route network with surface and connectivity specifications"
+    },
+    "points_of_interest": {
+      "display_name": "Points of Interest (Notable locations, landmarks)",
+      "gpkg_file": "Pontos de Interesse.gpkg",
+      "core_layers": [
+        "points_interest"
+      ],
+      "photo_gallery_layer": "pti_photo_gallery",
+      "core_attributes": {
+        "name": "String",
+        "notes": "String",
+        "uuid": "String"
+      },
+      "geometry_types": [
+        "Point"
+      ],
+      "priority": 8,
+      "usage": "Visitor attractions, landmarks, viewpoints, feature locations"
+    },
+    "property_boundary": {
+      "display_name": "Property Boundary (Study area limits)",
+      "gpkg_file": "property_boundaries.gpkg",
+      "core_layers": [
+        "Limites da Propriedade"
+      ],
+      "core_attributes": {
+        "name": "String (property name)",
+        "area": "Real (area calculation)"
+      },
+      "geometry_types": [
+        "Polygon"
+      ],
+      "priority": 9,
+      "usage": "Property perimeter and overall project study area"
+    },
+    "elevation_data": {
+      "display_name": "Elevation & Altitude (Topographic reference)",
+      "gpkg_file": "Altimetria.gpkg",
+      "core_layers": [
+        "Altimetria"
+      ],
+      "core_attributes": {
+        "HEIGHT": "Real (elevation meters)",
+        "ID": "Integer (point identifier)"
+      ],
+      "geometry_types": [
+        "Point (spot elevation samples)"
+      ],
+      "priority": 10,
+      "usage": "Reference elevation points for DEM validation and topographic understanding"
+    },
+    "cadastral_data": {
+      "display_name": "Cadastral Properties (Land registry - project-specific)",
+      "gpkg_file": "cadastro_predial.gpkg",
+      "core_layers": [
+        "predios"
+      ],
+      "core_attributes": {
+        "geometry": "original cadastral property polygons"
+      },
+      "geometry_types": [
+        "Polygon"
+      ],
+      "priority": 11,
+      "note": "Only present in SIG_Maridona, SIG_Torrao; check for presence before loading",
+      "usage": "Cadastral property boundaries for context"
+    }
+  },
+  "aggregation_rules": {
+    "enabled": true,
+    "refresh_strategy": "on_file_modification",
+    "virtual_layers": {
+      "all_observations": {
+        "source_layers": [
+          "observations"
+        ],
+        "description": "All observations from all projects, union across SIG_[project]/QField/ folders",
+        "refresh_trigger": "on_file_modification"
+      },
+      "all_site_visits": {
+        "source_layers": [
+          "site_visits"
+        ],
+        "description": "All site visits from all projects",
+        "refresh_trigger": "on_file_modification"
+      },
+      "all_interventions": {
+        "source_layers": [
+          "interventions"
+        ],
+        "description": "All interventions from all projects",
+        "refresh_trigger": "on_file_modification"
+      },
+      "all_tasks_maintenance": {
+        "source_layers": [
+          "tasks_maintenance"
+        ],
+        "description": "All tasks & maintenance from all projects",
+        "refresh_trigger": "on_file_modification"
+      },
+      "all_geometries_by_project": {
+        "source_layers": [
+          "observations",
+          "site_visits",
+          "interventions",
+          "tasks_maintenance",
+          "compliance_checks",
+          "boundary_updates"
+        ],
+        "description": "Union of all feature types, tagged with project name",
+        "refresh_trigger": "on_file_modification"
+      },
+      "project_activity_metrics": {
+        "source_layers": [
+          "observations",
+          "site_visits",
+          "interventions",
+          "tasks_maintenance"
+        ],
+        "description": "Statistics per project: feature counts, last update date, team activity",
+        "refresh_trigger": "hourly"
+      }
+    }
+  },
+  "backward_compatibility": {
+    "enabled": true,
+    "version_fallback": "1.0",
+    "alias_mappings": [
+      {
+        "old_pattern": "observacoes_*",
+        "new_pattern": "observations*",
+        "introduced_version": "1.0"
+      },
+      {
+        "old_pattern": "visitas_*",
+        "new_pattern": "site_visits*",
+        "introduced_version": "1.0"
+      },
+      {
+        "old_pattern": "trabalhos_*",
+        "new_pattern": "interventions*",
+        "introduced_version": "1.0"
+      }
+    ],
+    "fallback_discovery": true,
+    "fallback_log_level": "WARNING"
+  },
+  "discovery_strategy": {
+    "method": "glob_pattern_matching",
+    "case_sensitive": false,
+    "recursive_search": true,
+    "base_path": "${SIG_BASE}",
+    "folder_pattern": "SIG_*",
+    "qfield_subfolder": "QField",
+    "validate_layer_attributes": true,
+    "skip_invalid_layers": true
+  },
+  "performance": {
+    "cache_discovery_results": true,
+    "cache_ttl_seconds": 3600,
+    "batch_size_for_aggregation": 100,
+    "max_virtual_layers": 50
+  }
+}
