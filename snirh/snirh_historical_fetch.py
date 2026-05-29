@@ -117,30 +117,39 @@ def load_station_catalog(cover: str = MET_COVER, force_rebuild: bool = False) ->
     r = s.get(XML_URL, timeout=30)
     r.raise_for_status()
 
+    import html as _html
     stations = []
-    for m in re.finditer(
-        r'<marker\s+site="(\d+)"\s+cover="(\d+)"\s+[^>]*lat="([^"]+)"\s+lng="([^"]+)"\s+html="([^"]*)"',
-        r.text,
-    ):
-        site, cov, lat, lng, html = m.groups()
-        # Extract station code and name from html fragment
-        # html = " _BR_ ESTACAO: _STRONG NAME STRONG_ _BR_ CÓDIGO: _STRONG 18C/02U STRONG_"
-        code_m = re.search(r'C&amp;Oacute;DIGO.*?_STRONG\s+([^S]+?)\s+STRONG_', html)
-        name_m = re.search(r'ESTACAO:\s+_STRONG\s+([^S]+?)\s+STRONG_', html)
-        code = code_m.group(1).strip() if code_m else ""
-        name = name_m.group(1).strip() if name_m else ""
-        if not name:
-            # fallback: parse from estacao3 attribute
-            name_m2 = re.search(r'estacao3="[^(]*\(([^)]+)\)', m.group(0))
-            code = name_m2.group(1).strip() if name_m2 else ""
+    for m in re.finditer(r'<marker\s+(.*?)/>', r.text, re.S):
+        raw = m.group(1)
+        site_m = re.search(r'site="(\d+)"', raw)
+        lat_m  = re.search(r'lat="([^"]+)"', raw)
+        lng_m  = re.search(r'lng="([^"]+)"', raw)
+        cov_m  = re.search(r'cover="([^"]+)"', raw)
+        activa = re.search(r'activa="([^"]+)"', raw)
+        estacao_m = re.search(r'\bestacao="([^"]*)"', raw)
+        if not (site_m and lat_m and lng_m):
+            continue
+        site = site_m.group(1)
+        cov  = cov_m.group(1) if cov_m else cover
+        # Parse name+code from estacao attribute: "■ NAME (CODE)"
+        name, code = "", ""
+        if estacao_m:
+            val = _html.unescape(estacao_m.group(1)).strip().lstrip("\u25a0").strip()
+            cm = re.match(r'(.+?)\s*\(([^)]+)\)\s*$', val)
+            if cm:
+                name = cm.group(1).strip()
+                code = cm.group(2).strip()
+            else:
+                name = val
         try:
             stations.append({
                 "site": site,
                 "cover": cov,
                 "code": code,
                 "name": name,
-                "lat": float(lat),
-                "lon": float(lng),
+                "lat": float(lat_m.group(1)),
+                "lon": float(lng_m.group(1)),
+                "active": activa.group(1) == "1" if activa else False,
             })
         except ValueError:
             continue
