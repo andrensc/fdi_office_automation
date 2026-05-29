@@ -111,8 +111,25 @@ if [ -z "$GRASS_PYTHON" ]; then
 fi
 echo "  GRASS Python: $GRASS_PYTHON"
 
-# ── Step 4: Python virtual environment ───────────────────────────────────────
-echo -e "${GREEN}Step 4: Python virtual environment${NC}"
+# ── Step 4: Write .env ───────────────────────────────────────────────────────
+echo -e "${GREEN}Step 4: Configuring .env${NC}"
+ENV_FILE="$SCRIPT_DIR/.env"
+if [ ! -f "$ENV_FILE" ]; then
+    cp "$SCRIPT_DIR/.env.example" "$ENV_FILE"
+    echo "  Created .env from .env.example"
+fi
+# Set / update SYNC_ROOT in .env
+if grep -q "^SYNC_ROOT=" "$ENV_FILE"; then
+    sed -i.bak "s|^SYNC_ROOT=.*|SYNC_ROOT=$SYNC_ROOT|" "$ENV_FILE" && rm -f "$ENV_FILE.bak"
+    echo "  Updated SYNC_ROOT in .env"
+else
+    echo "SYNC_ROOT=$SYNC_ROOT" >> "$ENV_FILE"
+    echo "  Added SYNC_ROOT to .env"
+fi
+echo "  SYNC_ROOT=$SYNC_ROOT"
+
+# ── Step 5: Python virtual environment ───────────────────────────────────────
+echo -e "${GREEN}Step 5: Python virtual environment${NC}"
 if [ ! -d "$SCRIPT_DIR/venv" ]; then
     python3 -m venv "$SCRIPT_DIR/venv"
 fi
@@ -122,15 +139,15 @@ pip install --quiet -r "$SCRIPT_DIR/requirements.txt"
 pip install --quiet watchdog pyyaml
 echo "  Dependencies installed"
 
-# ── Step 5: Directories ───────────────────────────────────────────────────────
-echo -e "${GREEN}Step 5: Creating runtime directories${NC}"
+# ── Step 6: Directories ───────────────────────────────────────────────────────
+echo -e "${GREEN}Step 6: Creating runtime directories${NC}"
 mkdir -p "$SCRIPT_DIR/logs"
 mkdir -p "$SCRIPT_DIR/outputs_admin"
 echo "  logs/ and outputs_admin/ ready"
 
-# ── Step 6: Install crontab ──────────────────────────────────────────────────
+# ── Step 7: Install crontab ──────────────────────────────────────────────────
 if [ "$INSTALL_CRONTAB" = true ]; then
-    echo -e "${GREEN}Step 6: Installing crontab${NC}"
+    echo -e "${GREEN}Step 7: Installing crontab${NC}"
     PYTHON3="$(command -v python3)"
 
     if [ "$IS_WSL" = true ]; then
@@ -153,7 +170,7 @@ if [ "$INSTALL_CRONTAB" = true ]; then
     echo "  Crontab installed. Active FdI jobs:"
     crontab -l | grep "fdi_office_automation" | sed 's/^/    /'
 else
-    echo -e "${YELLOW}Step 6: Skipping crontab (--no-crontab)${NC}"
+    echo -e "${YELLOW}Step 7: Skipping crontab (--no-crontab)${NC}"
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────

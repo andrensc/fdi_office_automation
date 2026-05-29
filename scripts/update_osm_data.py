@@ -37,18 +37,13 @@ from datetime import datetime
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from modelos.helpers import logger
+from modelos.paths import PATHS
 
 
 class OsmDataUpdater:
 
-    DEM_PATH = Path(os.getenv(
-        "REGIONAL_DEM_PATH",
-        "/Users/g/Sync/FdI/SIG/shared_inputs/raster_data/topography/regional_elevation.tif",
-    ))
-    OSM_DIR = Path(os.getenv(
-        "OSM_DATA_DIR",
-        "/Users/g/Sync/FdI/SIG/shared_inputs/vector_data/OSM",
-    ))
+    DEM_PATH = PATHS["REGIONAL_DEM_PATH"]
+    OSM_DIR  = PATHS["OSM_DATA_DIR"]
     OSMCONF = Path(__file__).parent.parent / "modelos" / "config" / "osmconf.ini"
     TARGET_CRS = "EPSG:3763"
     NODATA_VALUE = -32768

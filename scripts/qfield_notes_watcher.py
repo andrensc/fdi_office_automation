@@ -62,6 +62,7 @@ if _env_file.exists():
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from modelos.qfield.notes_syncer import NotesSyncer
+from modelos.paths import PATHS
 
 logging.basicConfig(
     level=logging.INFO,
@@ -69,7 +70,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("qfield_notes_watcher")
 
-CLOUD_BASE = Path("/Users/g/QField/cloud")
+CLOUD_BASE = PATHS["QFIELD_CLOUD_BASE"]
 
 
 # ---------------------------------------------------------------------------

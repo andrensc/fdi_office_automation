@@ -31,6 +31,7 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from modelos.helpers import logger
+from modelos.paths import PATHS
 
 
 class BatchDataRefresh:
@@ -46,7 +47,7 @@ class BatchDataRefresh:
 
         self.gpkg_path = Path(os.getenv(
             'LIMITE_PROPRIEDADE_GPKG',
-            '/Users/g/Sync/FdI/SIG/Estrutura Projeto Template/VectorData/Limite da Propriedade.gpkg'
+            str(PATHS['LIMITE_PROPRIEDADE_GPKG'])
         ))
         self.gpkg_layer = 'Limite da Propriedade'
         self.docker_container = os.getenv('DOCKER_CONTAINER_COMERCIAL', 'qgis-comercial-processor')

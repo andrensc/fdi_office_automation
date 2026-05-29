@@ -32,6 +32,7 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from modelos.helpers import logger
+from modelos.paths import PATHS
 
 # GeoPackage table name (as stored in the GPKG)
 LIMITE_TABLE = "Limite da Propriedade"
@@ -49,7 +50,7 @@ class OvernightRebuildTrigger:
 
         self.gpkg_path = Path(os.getenv(
             'LIMITE_PROPRIEDADE_GPKG',
-            '/Users/g/Sync/FdI/SIG/Estrutura Projeto Template/VectorData/Limite da Propriedade.gpkg'
+            str(PATHS['LIMITE_PROPRIEDADE_GPKG'])
         ))
         self.docker_container = os.getenv('DOCKER_CONTAINER_PHASE1', 'qgis-py-phase1')
         self.docker_timeout = int(os.getenv('DOCKER_EXEC_TIMEOUT', '14400'))  # 4 hours per project
