@@ -560,6 +560,143 @@ class ConflictWatcher:
                 self.handle_conflict(p)
         logger.info(f"Startup scan complete — found {found} unreported conflict(s)")
 
+
+    def weekly_digest(self) -> str:
+        """
+        Build and send a weekly email digest.
+        Returns the digest text (also printed to stdout).
+
+        Shows:
+          • NEW conflicts detected since last digest (or last 7 days)
+          • PENDING conflicts whose CONFLICT file is still on disk
+        """
+        import glob as _glob
+        from datetime import timedelta
+
+        log_dir = self.log_dir
+        now = datetime.now()
+        week_ago = now - timedelta(days=7)
+
+        # Load all JSON reports
+        all_records: list[dict] = []
+        for json_file in sorted(log_dir.glob("conflict_report_*.json")):
+            try:
+                records = json.loads(json_file.read_text())
+                if isinstance(records, list):
+                    all_records.extend(records)
+            except Exception:
+                pass
+
+        # State file tracks every conflict ever seen
+        seen = self._load_state()
+
+        # Determine last digest date (stored in state)
+        last_digest_key = "__last_weekly_digest__"
+        last_digest_str = seen.get(last_digest_key)
+        try:
+            last_digest_dt = datetime.fromisoformat(last_digest_str) if last_digest_str else week_ago
+        except Exception:
+            last_digest_dt = week_ago
+
+        # NEW this week: detected after last digest
+        new_records = [
+            r for r in all_records
+            if datetime.fromisoformat(r["detected_at"]) > last_digest_dt
+        ]
+
+        # PENDING: CONFLICT file still on disk
+        pending_records = [
+            r for r in all_records
+            if Path(r["conflict_file"]).exists()
+        ]
+
+        # Remove duplicates by conflict_file path (keep latest)
+        def dedup(records):
+            seen_paths: dict = {}
+            for r in sorted(records, key=lambda x: x["detected_at"]):
+                seen_paths[r["conflict_file"]] = r
+            return list(seen_paths.values())
+
+        new_records = dedup(new_records)
+        pending_records = dedup(pending_records)
+
+        w = 70
+        lines = [
+            "=" * w,
+            "  📋  FdI SIG — WEEKLY SYNC CONFLICT DIGEST",
+            f"  Generated: {now:%Y-%m-%d %H:%M}",
+            f"  Period: {last_digest_dt:%Y-%m-%d} → {now:%Y-%m-%d}",
+            "=" * w,
+        ]
+
+        # ── NEW this period ─────────────────────────────────────────────────
+        lines.append(f"\n  🆕  NEW CONFLICTS THIS PERIOD ({len(new_records)})")
+        lines.append("-" * w)
+        if new_records:
+            for r in sorted(new_records, key=lambda x: x["detected_at"], reverse=True):
+                project = r.get("project", "?")
+                fname = Path(r["conflict_file"]).name
+                c_user = r.get("conflict_user") or "?"
+                o_user = r.get("original_user") or "?"
+                c_dt = (r.get("conflict_saved") or "?")[:16]
+                o_dt = (r.get("original_saved") or "?")[:16]
+                still = "⚠️ STILL ON DISK" if Path(r["conflict_file"]).exists() else "✅ resolved"
+                lines.append(f"  [{still}] {project} / {fname}")
+                lines.append(f"     CONFLICT saved {c_dt} by {c_user}")
+                lines.append(f"     Original saved {o_dt} by {o_user}")
+                diff = r.get("diff") or {}
+                for s in (diff.get("summary") or [])[:3]:
+                    lines.append(f"     • {s}")
+                lines.append("")
+        else:
+            lines.append("  No new conflicts this period. 🎉")
+            lines.append("")
+
+        # ── PENDING (still on disk) ─────────────────────────────────────────
+        lines.append(f"  ⏳  PENDING CONFLICTS STILL ON DISK ({len(pending_records)})")
+        lines.append("-" * w)
+        if pending_records:
+            for r in sorted(pending_records, key=lambda x: x["detected_at"]):
+                project = r.get("project", "?")
+                fname = Path(r["conflict_file"]).name
+                c_user = r.get("conflict_user") or "?"
+                detected = r.get("detected_at", "?")[:16]
+                diff = r.get("diff") or {}
+                has_diff = diff.get("has_diff")
+                verdict = "has differences" if has_diff else ("identical" if has_diff is False else "unknown")
+                lines.append(f"  {project} / {fname}")
+                lines.append(f"     First detected: {detected}  |  by {c_user}  |  {verdict}")
+                for s in (diff.get("summary") or [])[:2]:
+                    lines.append(f"     • {s}")
+                lines.append("")
+        else:
+            lines.append("  No pending conflicts — all clear! ✅")
+            lines.append("")
+
+        lines.append("=" * w)
+        lines.append("  Run analyser for full diff detail:")
+        lines.append("  python3 scripts/sync_conflict_analyser.py --only-diffs")
+        lines.append("=" * w)
+
+        digest_text = "\n".join(lines)
+        print(digest_text)
+        logger.info("Weekly digest generated")
+
+        # Save to log
+        digest_file = log_dir / f"conflict_digest_{now:%Y-%m-%d}.txt"
+        digest_file.write_text(digest_text)
+
+        # Send email
+        subject = f"📋 SIG Weekly Conflict Digest — {len(new_records)} new, {len(pending_records)} pending"
+        notify_email(subject, digest_text)
+
+        # Update last digest timestamp in state
+        seen[last_digest_key] = now.isoformat()
+        self.seen = seen
+        self._save_state()
+
+        return digest_text
+
     def run(self):
         if self.scan_on_startup:
             self.startup_scan()
@@ -578,9 +715,21 @@ class ConflictWatcher:
         observer.schedule(handler, str(self.watch_path), recursive=True)
         observer.start()
 
+        # Track when we last sent the weekly digest
+        _last_digest_check: Optional[str] = None
+
         try:
             while True:
                 time.sleep(1)
+                # Check once per hour if it's Sunday and digest hasn't been sent today
+                now = datetime.now()
+                today_str = now.strftime("%Y-%m-%d")
+                if (now.weekday() == 6  # Sunday
+                        and now.hour >= 8
+                        and _last_digest_check != today_str):
+                    _last_digest_check = today_str
+                    logger.info("Sunday digest check triggered")
+                    self.weekly_digest()
         except KeyboardInterrupt:
             pass
         finally:
@@ -635,6 +784,10 @@ def main() -> int:
         "--no-desktop", action="store_true",
         help="Suppress macOS desktop notifications (log + email only)",
     )
+    parser.add_argument(
+        "--weekly-report", action="store_true",
+        help="Generate and email weekly digest now, then exit (use with cron/launchd)",
+    )
     args = parser.parse_args()
 
     watcher = ConflictWatcher(
@@ -642,6 +795,11 @@ def main() -> int:
         no_desktop=args.no_desktop,
         scan_on_startup=args.scan_on_startup,
     )
+
+    if args.weekly_report:
+        watcher.weekly_digest()
+        return 0
+
     watcher.run()
     return 0
 
