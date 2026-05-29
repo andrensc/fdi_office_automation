@@ -96,6 +96,125 @@ Canonical layer naming patterns for automated discovery across all SIG_[project]
 ### Tier 6 (Deferred/Wave 3) — Advanced Features
 1. **OFFICE-SYNC-CONFLICTS** — conflict detector + remediation
 
+---
+
+## Office Fixed Computer Setup
+
+This section covers everything needed to run the automations on the office stationary computer (Linux/Windows) instead of the MacBook Pro.
+
+### Prerequisites
+
+| Requirement | macOS (MBP) | Linux (office PC) |
+|---|---|---|
+| Python 3.9+ | built-in | `sudo apt install python3 python3-venv python3-pip` |
+| Docker | Docker Desktop | `sudo apt install docker.io && sudo usermod -aG docker $USER` |
+| GRASS GIS 8.x | GRASS-8.4.app | `sudo apt install grass` |
+| sync.com client | installed | Download from [sync.com/install](https://www.sync.com/install/) |
+| git | built-in | `sudo apt install git` |
+
+> **Windows note**: Use WSL2 (Windows Subsystem for Linux) — the scripts use bash/cron and are not natively Windows-compatible.
+
+---
+
+### Step-by-step
+
+**1. Install sync.com and let it fully sync**
+
+The automation depends on these folders being present:
+```
+~/Sync/FdI/SIG/
+~/Sync/FdI/SIG/Estrutura Projeto Template/
+~/Sync/FdI/SIG/shared_inputs/
+```
+Do not proceed until sync.com shows these as fully synced.
+
+**2. Clone or pull the repo**
+
+The repo lives inside the sync folder, so it should arrive via sync.com automatically:
+```bash
+ls ~/Sync/FdI/fdi_office_automation   # should already exist after sync
+```
+If not, clone it manually:
+```bash
+cd ~/Sync/FdI
+git clone https://github.com/andrensc/fdi_office_automation.git
+```
+
+**3. Install Docker and start it**
+
+```bash
+# Linux
+sudo apt install docker.io
+sudo systemctl enable docker
+sudo systemctl start docker
+sudo usermod -aG docker $USER   # log out and back in after this
+```
+
+Make sure the same Docker containers used on the MBP are running:
+```bash
+docker ps   # should show: qgis-comercial-processor, qgis-py-phase1, qgis-py-phase2
+```
+If not, ask for the `docker-compose.yml` from the main project and run `docker compose up -d`.
+
+**4. Install GRASS GIS**
+
+```bash
+sudo apt install grass
+grass --version   # confirm 8.x
+```
+
+**5. Run setup**
+
+```bash
+cd ~/Sync/FdI/fdi_office_automation
+bash setup.sh
+```
+
+The script will:
+- Auto-detect your `~/Sync/FdI` path
+- Find the GRASS Python binary
+- Install Python dependencies into a virtual environment
+- Install the crontab with paths substituted for this machine
+
+**6. Verify**
+
+```bash
+# Dry run the main pipeline
+python3 scripts/overnight_predios_processor.py --dry-run
+
+# Check crontab was installed
+crontab -l | grep fdi_office_automation
+
+# Check all scheduled jobs
+# Expected: runs at 06:00, 12:00, 22:00 daily + 03:00 on 1st of month
+```
+
+---
+
+### Key differences vs MacBook Pro
+
+| | MacBook Pro | Office PC |
+|---|---|---|
+| GRASS Python path | `/Applications/GRASS-8.4.app/Contents/Resources/bin/python3` | `/usr/bin/python3` (with GRASS bindings) |
+| QField cloud folder | `~/QField/cloud/` | Not applicable (QField runs on mobile only) |
+| Cron scheduler | macOS `crontab` | Linux `crontab` (same syntax) |
+| Docker | Docker Desktop | Docker Engine (headless) |
+
+---
+
+### Sharing with other colleagues
+
+1. They install sync.com and let it sync `~/Sync/FdI`
+2. They run `bash ~/Sync/FdI/fdi_office_automation/setup.sh`
+3. Done — paths are substituted automatically for their username/machine
+
+The file `scripts/crontab.export` in this repo is the source of truth for all scheduled jobs. Any changes to the schedule should be:
+1. Made on the machine where they're developed (`crontab -e`)
+2. Exported: `crontab -l > scripts/crontab.export`
+3. Committed and pushed to git
+
+---
+
 ## Quick Start
 
 ```bash
