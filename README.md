@@ -193,12 +193,88 @@ crontab -l | grep fdi_office_automation
 
 ### Key differences vs MacBook Pro
 
-| | MacBook Pro | Office PC |
-|---|---|---|
-| GRASS Python path | `/Applications/GRASS-8.4.app/Contents/Resources/bin/python3` | `/usr/bin/python3` (with GRASS bindings) |
-| QField cloud folder | `~/QField/cloud/` | Not applicable (QField runs on mobile only) |
-| Cron scheduler | macOS `crontab` | Linux `crontab` (same syntax) |
-| Docker | Docker Desktop | Docker Engine (headless) |
+| | MacBook Pro | Linux office PC | Windows office PC |
+|---|---|---|---|
+| GRASS Python | `/Applications/GRASS-8.4.app/.../python3` | `/usr/bin/python3` | WSL2 `/usr/bin/python3` |
+| QField cloud folder | `~/QField/cloud/` | N/A | N/A |
+| Cron scheduler | macOS `crontab` | Linux `crontab` | WSL2 `crontab` + service |
+| Docker | Docker Desktop | Docker Engine | Docker Desktop for Windows |
+| sync.com path | `~/Sync/FdI` | `~/Sync/FdI` | `/mnt/c/Users/<you>/Sync/FdI` |
+
+---
+
+### Windows Computer Setup
+
+The scripts use `bash` and `cron` — neither runs natively on Windows. The solution is **WSL2** (Windows Subsystem for Linux), which gives you a full Ubuntu environment inside Windows. sync.com runs as a normal Windows app and its files are accessible from WSL2.
+
+**1. Install WSL2**
+
+Open PowerShell as Administrator and run:
+```powershell
+wsl --install
+# Reboot when prompted, then open "Ubuntu" from the Start menu
+# Create a Linux username/password when asked
+```
+
+**2. Install sync.com for Windows**
+
+Download and install the sync.com desktop client from [sync.com/install](https://www.sync.com/install/).  
+Let it fully sync. It will create `C:\Users\<you>\Sync\FdI\`.
+
+From WSL2, this folder is visible at:
+```bash
+ls /mnt/c/Users/<your-windows-username>/Sync/FdI
+```
+
+**3. Install dependencies inside WSL2**
+
+```bash
+# Open Ubuntu (WSL2) terminal
+sudo apt update && sudo apt install -y python3 python3-venv python3-pip git grass
+```
+
+**4. Install Docker Desktop for Windows**
+
+Download from [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/).  
+During install, enable **"Use WSL 2 based engine"**. After install:
+- Open Docker Desktop → Settings → Resources → WSL Integration → enable Ubuntu
+
+Verify from WSL2:
+```bash
+docker ps   # should list running containers
+```
+
+**5. Run setup**
+
+```bash
+# In WSL2 terminal — the script auto-detects your Windows username and sync path
+cd /mnt/c/Users/<your-windows-username>/Sync/FdI/fdi_office_automation
+bash setup.sh
+```
+
+**6. Enable cron in WSL2**
+
+WSL2 does not start `cron` automatically. Two steps needed:
+
+```bash
+# Start cron now
+sudo service cron start
+
+# Auto-start cron when WSL2 launches (add to /etc/wsl.conf)
+sudo tee -a /etc/wsl.conf << 'EOF'
+[boot]
+command = service cron start
+EOF
+```
+
+> **Note**: On Windows 11 with WSL2 kernel 5.15+, the `[boot] command` works out of the box. On Windows 10 you may need to use Task Scheduler to run `wsl sudo service cron start` at login.
+
+**7. Verify**
+
+```bash
+crontab -l | grep fdi_office_automation   # confirm jobs installed
+python3 scripts/overnight_predios_processor.py --dry-run
+```
 
 ---
 
