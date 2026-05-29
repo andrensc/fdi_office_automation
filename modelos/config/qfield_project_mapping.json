@@ -5,18 +5,7 @@
   "notas_gpkg_relative": "inputs_project/project_vector_data/Notas.gpkg",
   "central_notas_gpkg": "/Users/g/Sync/FdI/SIG/outputs_admin/notas_all_projects.gpkg",
   "log_dir": "/Users/g/Sync/FdI/SIG/logs",
-  "projects": {
-    "Florestas_de_Iroko__Rectificacao_-_Fonte_da_Arcada": {
-      "property_name": "Fonte da Arcada",
-      "sig_project_folder": "/Users/g/Sync/FdI/SIG/SIG_Fonte da Arcada",
-      "qgs_project_title": "Rectificacao - Fonte da Arcada (QFieldCloud)"
-    },
-    "Florestas_de_Iroko__Rectificacao_Artosas": {
-      "property_name": "Artosas",
-      "sig_project_folder": "/Users/g/Sync/FdI/SIG/SIG_Artosas",
-      "qgs_project_title": "Rectificacao - Quinta das Artosas (QFieldCloud)"
-    }
-  },
+  "projects": {},
   "notes_tables": {
     "points": [
       "pontos_notaveis",

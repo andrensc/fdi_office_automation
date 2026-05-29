@@ -234,34 +234,84 @@ class NotesSyncer:
     # ------------------------------------------------------------------
 
     def _resolve_project(self, cloud_folder_name: str) -> Optional[dict]:
-        """Return project config dict or None if not found."""
+        """Return project config dict or None if not found.
+
+        Matching strategy: compare bounding box of property_boundaries.gpkg geometry
+        between the cloud folder and each SIG_* project folder. This is robust against
+        any naming convention — folder names and project names are ignored.
+        """
+        # Explicit config override (rarely needed)
         projects = self.cfg.get("projects", {})
         if cloud_folder_name in projects:
             return projects[cloud_folder_name]
-        # Fallback: read property_boundaries.gpkg on the fly
+
         cloud_dir = self.cloud_base / cloud_folder_name
-        pb = cloud_dir / "property_boundaries.gpkg"
-        if pb.exists():
+        pb_cloud = cloud_dir / "property_boundaries.gpkg"
+        if not pb_cloud.exists():
+            logger.warning(f"No property_boundaries.gpkg in {cloud_folder_name} — cannot resolve SIG project")
+            return None
+
+        try:
+            cloud_bbox = self._get_property_bbox(pb_cloud)
+        except Exception as e:
+            logger.warning(f"Could not read property_boundaries for {cloud_folder_name}: {e}")
+            return None
+
+        if cloud_bbox is None:
+            return None
+
+        # Search all SIG_* folders for a matching bbox
+        for sig_dir in self.sig_base.iterdir():
+            if not sig_dir.name.startswith("SIG_") or not sig_dir.is_dir():
+                continue
+            pb_sig = sig_dir / "inputs_project" / "project_vector_data" / "property_boundaries.gpkg"
+            if not pb_sig.exists():
+                continue
             try:
-                conn = sqlite3.connect(str(pb))
-                cur = conn.cursor()
-                tables = _get_tables(cur)
-                for t in tables:
-                    cur.execute(f'SELECT name FROM "{t}" LIMIT 1')
-                    row = cur.fetchone()
-                    if row:
-                        name = row[0]
-                        # Search SIG folder (normalize to NFC — macOS filesystem uses NFD)
-                        name_nfc = unicodedata.normalize("NFC", name)
-                        for d in self.sig_base.iterdir():
-                            d_nfc = unicodedata.normalize("NFC", d.name)
-                            if d_nfc.startswith("SIG_") and name_nfc.lower() in d_nfc.lower():
-                                conn.close()
-                                return {"property_name": name, "sig_project_folder": str(d)}
-                conn.close()
-            except Exception as e:
-                logger.warning(f"Could not read property_boundaries for {cloud_folder_name}: {e}")
+                sig_bbox = self._get_property_bbox(pb_sig)
+                if sig_bbox and self._bbox_matches(cloud_bbox, sig_bbox):
+                    property_name = self._get_property_name(pb_cloud)
+                    logger.debug(f"  Matched {cloud_folder_name} → {sig_dir.name} via geometry")
+                    return {"property_name": property_name or cloud_folder_name,
+                            "sig_project_folder": str(sig_dir)}
+            except Exception:
+                continue
+
+        logger.warning(f"No SIG project geometry-matched {cloud_folder_name}")
         return None
+
+    @staticmethod
+    def _get_property_bbox(gpkg_path) -> Optional[tuple]:
+        """Return (minx, maxx, miny, maxy) of Limites da Propriedade geometry."""
+        conn = _open_gpkg(str(gpkg_path), write=True)  # write=True loads spatialite for ST_MinX
+        cur = conn.cursor()
+        try:
+            cur.execute(
+                'SELECT ST_MinX(geom), ST_MaxX(geom), ST_MinY(geom), ST_MaxY(geom) FROM "Limites da Propriedade" LIMIT 1'
+            )
+            row = cur.fetchone()
+            return row if row and row[0] is not None else None
+        finally:
+            conn.close()
+
+    @staticmethod
+    def _get_property_name(gpkg_path) -> Optional[str]:
+        """Return name field from Limites da Propriedade."""
+        conn = sqlite3.connect(str(gpkg_path))
+        cur = conn.cursor()
+        try:
+            cur.execute('SELECT name FROM "Limites da Propriedade" LIMIT 1')
+            row = cur.fetchone()
+            return row[0] if row else None
+        except Exception:
+            return None
+        finally:
+            conn.close()
+
+    @staticmethod
+    def _bbox_matches(a: tuple, b: tuple, tolerance: float = 10.0) -> bool:
+        """Return True if two bboxes are within tolerance metres of each other."""
+        return all(abs(a[i] - b[i]) < tolerance for i in range(4))
 
     # ------------------------------------------------------------------
 
@@ -464,10 +514,16 @@ class NotesSyncer:
 
         local_dir = self.cloud_base / cloud_folder_name
         logger.info(f"Pulling Notas.gpkg for project {project_id} → {local_dir}")
-        client.download_files(
-            project_id,
-            str(local_dir),
+        remote_files = client.list_remote_files(project_id)
+        results = client.download_files(
+            files=remote_files,
+            project_id=project_id,
+            download_type=sdk.FileTransferType.PROJECT,
+            local_dir=str(local_dir),
             filter_glob="Notas.gpkg",
             force_download=True,
+            show_progress=False,
         )
-        return True
+        n = sum(1 for f in results if f.get("status") == sdk.FileTransferStatus.SUCCESS)
+        logger.info(f"  Downloaded {n} file(s) for {cloud_folder_name}")
+        return n > 0

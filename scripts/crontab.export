@@ -1,0 +1,11 @@
+PATH=/usr/local/bin:/usr/bin:/bin
+# fdi_office_automation — overnight jobs
+# OFFICE-N1: comercial_maps pipeline at 22:00
+0 22 * * * cd /Users/g/Sync/FdI/fdi_office_automation && /usr/bin/python3 scripts/overnight_predios_processor.py --execute >> logs/cron.log 2>&1
+# OFFICE-N2: project creator at 06:00
+0 6 * * * cd /Users/g/Sync/FdI/fdi_office_automation && /usr/bin/python3 scripts/overnight_rebuild_trigger.py --execute >> logs/cron.log 2>&1
+0 6 * * 6 cd /Users/g/Sync/FdI/fdi_office_automation && /usr/bin/python3 scripts/batch_data_refresh.py --execute >> logs/cron.log 2>&1
+# OFFICE-N4: OSM regional data refresh on the 1st of each month at 03:00
+0 3 1 * * cd /Users/g/Sync/FdI/fdi_office_automation && /Applications/GRASS-8.4.app/Contents/Resources/bin/python3 scripts/update_osm_data.py --execute >> logs/cron.log 2>&1
+# OFFICE-N1b: comercial_maps pipeline midday run at 12:00
+0 12 * * * cd /Users/g/Sync/FdI/fdi_office_automation && /usr/bin/python3 scripts/overnight_predios_processor.py --execute >> logs/cron.log 2>&1

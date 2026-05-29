@@ -49,6 +49,15 @@ except ImportError:
     print("Error: watchdog library required. Install with: pip install watchdog")
     sys.exit(1)
 
+# Load .env from repo root if present
+_env_file = Path(__file__).parent.parent / ".env"
+if _env_file.exists():
+    for _line in _env_file.read_text().splitlines():
+        _line = _line.strip()
+        if _line and not _line.startswith("#") and "=" in _line:
+            _k, _v = _line.split("=", 1)
+            os.environ.setdefault(_k.strip(), _v.strip())
+
 # Add parent directory for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -188,11 +197,36 @@ def cmd_pull_and_sync(syncer: NotesSyncer):
     logger.info("Pull + sync complete.")
 
 
-def cmd_pull_and_watch(syncer: NotesSyncer):
+def cmd_pull_and_watch(syncer: NotesSyncer, pull_interval_minutes: int = 30):
+    """Pull from API + sync, then watch filesystem AND re-pull periodically."""
     pull_all_projects(syncer)
     syncer.sync_all()
-    logger.info("Initial sync done. Starting watcher...")
-    cmd_watch(syncer)
+    logger.info(f"Initial sync done. Watching filesystem + re-pulling every {pull_interval_minutes} min...")
+
+    handler = NotasChangeHandler(syncer)
+    observer = Observer()
+    observer.schedule(handler, str(CLOUD_BASE), recursive=True)
+    observer.start()
+
+    pull_interval_secs = pull_interval_minutes * 60
+    last_pull = time.time()
+
+    try:
+        while True:
+            time.sleep(1)
+            if time.time() - last_pull >= pull_interval_secs:
+                logger.info(f"[periodic] Re-pulling from QFieldCloud API...")
+                try:
+                    pull_all_projects(syncer)
+                    syncer.sync_all()
+                    logger.info("[periodic] Pull + sync complete.")
+                except Exception as e:
+                    logger.error(f"[periodic] Pull failed: {e}")
+                last_pull = time.time()
+    except KeyboardInterrupt:
+        logger.info("Stopping watcher.")
+        observer.stop()
+    observer.join()
 
 
 # ---------------------------------------------------------------------------
@@ -215,6 +249,13 @@ def main():
         default=None,
         help="Path to qfield_project_mapping.json (default: modelos/config/)",
     )
+    parser.add_argument(
+        "--pull-interval",
+        type=int,
+        default=30,
+        metavar="MINUTES",
+        help="Minutes between API re-pulls in --pull-and-watch mode (default: 30)",
+    )
     parser.add_argument("--verbose", action="store_true", help="Debug logging")
 
     args = parser.parse_args()
@@ -232,7 +273,7 @@ def main():
     elif args.pull_and_sync:
         cmd_pull_and_sync(syncer)
     elif args.pull_and_watch:
-        cmd_pull_and_watch(syncer)
+        cmd_pull_and_watch(syncer, pull_interval_minutes=args.pull_interval)
 
 
 if __name__ == "__main__":
