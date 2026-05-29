@@ -1,13 +1,17 @@
 """
-snirh_fetch_reservoirs.py — Monthly reservoir fill data (albufeiras).
+snirh_fetch_reservoirs.py — Monthly reservoir fill data by basin (albufeiras).
 
-Parses the SNIRH albufeiras bulletin page for reservoir storage data.
-Output: albufeiras_fill.csv (append-only).
+Scrapes the tabelageral.php endpoint which returns a basin-level fill % table
+for all hydrological years available. This is the data source used by the SNIRH
+JS map UI (albuf_funcoes.js) and is actively updated monthly.
+
+Output: albufeiras_fill.csv (append-only, deduplicated by basin+hydrological_year+month).
+Columns: basin, hydro_year, month, pct_fill, fetched_at
 """
 
 import logging
 import re
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone
 
 import pandas as pd
 import requests
@@ -19,113 +23,100 @@ from .snirh_session import BASE_URL, get_cache_dir, get_session
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-BULLETIN_URL = f"{BASE_URL}/index.php?idMain=1&idItem=1.3"
+# Base path for the albufeiras synthesis tables
+TABELA_BASE = f"{BASE_URL}/snirh/_dadossintese/albufeiras/tabelas/tabelageral.php"
 CSV_NAME = "albufeiras_fill.csv"
-COLS = [
-    "albufeira_code",
-    "albufeira_nome",
-    "year",
-    "month",
-    "volume_hm3",
-    "pct_capacidade",
-    "fetched_at",
-]
+COLS = ["basin", "hydro_year", "month", "pct_fill", "fetched_at"]
 
-# Portuguese month names → int
-PT_MONTHS = {
-    "janeiro": 1, "fevereiro": 2, "março": 3, "abril": 4,
-    "maio": 5, "junho": 6, "julho": 7, "agosto": 8,
-    "setembro": 9, "outubro": 10, "novembro": 11, "dezembro": 12,
+# Portuguese month abbreviation → int (hydrological year starts in October)
+PT_MONTH_ABBR = {
+    "OUT": 10, "NOV": 11, "DEZ": 12,
+    "JAN": 1, "FEV": 2, "MAR": 3, "ABR": 4,
+    "MAI": 5, "JUN": 6, "JUL": 7, "AGO": 8, "SET": 9,
 }
 
 
-def _extract_bulletin_date(soup: BeautifulSoup) -> tuple[int, int]:
-    """Try to extract year/month from bulletin page text. Falls back to today."""
-    today = date.today()
-    text = soup.get_text(separator=" ", strip=True).lower()
-
-    for pt_month, month_num in PT_MONTHS.items():
-        pattern = rf"{pt_month}\s+de\s+(\d{{4}})"
-        m = re.search(pattern, text)
-        if m:
-            return int(m.group(1)), month_num
-
-    # Try numeric date patterns like "2024-03" or "03/2024"
-    m = re.search(r"(\d{4})[/-](\d{2})", text)
-    if m:
-        return int(m.group(1)), int(m.group(2))
-
-    logger.warning("Could not extract bulletin date; using today (%d/%02d)", today.year, today.month)
-    return today.year, today.month
-
-
-def _parse_reservoir_table(soup: BeautifulSoup, year: int, month: int) -> pd.DataFrame:
+def _parse_tabelageral(html: str) -> pd.DataFrame:
     """
-    Parse all tables on the page and return the one that looks like reservoir data.
-    Expected columns contain: nome/albufeira, capacidade, volume, %
+    Parse tabelageral.php response into rows.
+
+    Table structure:
+      Row 0: headers  ["", "", "ARADE", "AVE", ...]
+      Row 1: capacity ["Capacidade Total ...", "233.1", ...]
+      Remaining rows grouped by hydrological year label then month abbr:
+        ["Média (%)","OUT", val, val, ...]   ← first row of group has year+month merged
+        ["NOV", val, ...]                    ← subsequent rows have only month
+      Year label like "2024/25(%)" appears at the start of a new group.
     """
-    rows = []
-    tables = soup.find_all("table")
+    soup = BeautifulSoup(html, "lxml")
+    table = soup.find("table")
+    if not table:
+        logger.warning("No table found in tabelageral response")
+        return pd.DataFrame(columns=COLS[:-1])
 
-    for table in tables:
-        headers_raw = [th.get_text(strip=True).lower() for th in table.find_all("th")]
-        headers_all = " ".join(headers_raw)
-        # Look for table containing reservoir-related headers
-        if not any(k in headers_all for k in ["volume", "capacidade", "albufeira", "nome"]):
-            # Also check first row TDs as headers
-            first_row = table.find("tr")
-            if first_row:
-                cells = [td.get_text(strip=True).lower() for td in first_row.find_all("td")]
-                headers_all = " ".join(cells)
-                if not any(k in headers_all for k in ["volume", "capacidade", "albufeira", "nome"]):
-                    continue
-
-        for tr in table.find_all("tr"):
-            cells = [td.get_text(strip=True) for td in tr.find_all("td")]
-            if len(cells) < 3:
-                continue
-            # Skip header rows
-            if any(h in cells[0].lower() for h in ["nome", "albufeira", "bacia"]):
-                continue
-            nome = cells[0].strip()
-            if not nome:
-                continue
-
-            # Try to extract numeric values for volume and %
-            volume = None
-            pct = None
-            for cell in cells[1:]:
-                clean = cell.replace(",", ".").replace("%", "").strip()
-                try:
-                    val = float(clean)
-                    if "%" in cell or (0 <= val <= 100 and pct is None):
-                        pct = val
-                    elif volume is None:
-                        volume = val
-                except ValueError:
-                    pass
-
-            rows.append(
-                {
-                    "albufeira_code": re.sub(r"\s+", "_", nome.lower()),
-                    "albufeira_nome": nome,
-                    "year": year,
-                    "month": month,
-                    "volume_hm3": volume,
-                    "pct_capacidade": pct,
-                }
-            )
-
+    rows = table.find_all("tr")
     if not rows:
-        logger.warning("No reservoir rows extracted from page")
-    return pd.DataFrame(rows, columns=COLS[:-1]) if rows else pd.DataFrame(columns=COLS[:-1])
+        return pd.DataFrame(columns=COLS[:-1])
+
+    # Extract basin names from header row
+    header_cells = [td.get_text(strip=True) for td in rows[0].find_all(["td", "th"])]
+    # First two columns are label placeholders, rest are basin names
+    basins = [c for c in header_cells[2:] if c]
+
+    records = []
+    current_year = "Média"  # rows before first explicit year label are multi-year averages
+
+    for row in rows[2:]:  # skip header + capacity row
+        cells = [td.get_text(strip=True) for td in row.find_all(["td", "th"])]
+        if not cells:
+            continue
+
+        # Detect year group header pattern like "2024/25(%)" or "Média\n(%)"
+        first = cells[0].strip()
+        if re.search(r"\d{4}/\d{2}", first) or "média" in first.lower():
+            # Extract year like "2024/25" → "2024/25"
+            m = re.search(r"(\d{4}/\d{2})", first)
+            current_year = m.group(1) if m else first.split("(")[0].strip()
+            month_cell = cells[1] if len(cells) > 1 else ""
+            values = cells[2:]
+        else:
+            month_cell = first
+            values = cells[1:]
+
+        month_abbr = month_cell.strip().upper()
+        if month_abbr not in PT_MONTH_ABBR:
+            continue
+        month_num = PT_MONTH_ABBR[month_abbr]
+
+        for i, basin in enumerate(basins):
+            if i < len(values):
+                val_str = values[i].strip()
+                if val_str and val_str.lower() != "n/d":
+                    try:
+                        pct = float(val_str.replace(",", ".").replace("\xa0", "").replace("\u00a0", ""))
+                        records.append({
+                            "basin": basin,
+                            "hydro_year": current_year,
+                            "month": month_num,
+                            "pct_fill": pct,
+                        })
+                    except ValueError:
+                        pass
+
+    return pd.DataFrame(records, columns=COLS[:-1]) if records else pd.DataFrame(columns=COLS[:-1])
 
 
-def fetch_reservoir_fill(session: requests.Session | None = None) -> pd.DataFrame:
+def fetch_reservoir_fill(
+    session: requests.Session | None = None,
+    years_back: int = 3,
+) -> pd.DataFrame:
     """
-    Fetch current SNIRH albufeiras bulletin and extract reservoir fill data.
+    Fetch SNIRH albufeiras fill % by basin for recent hydrological years.
 
-    Returns new rows DataFrame (may be empty on failure).
+    Fetches tabelageral.php with percOUvolum=0 (percentage mode) for each
+    hydrological year from (current - years_back) to current.
+
+    Returns new rows DataFrame.
     """
     if session is None:
         session = get_session()
@@ -133,47 +124,54 @@ def fetch_reservoir_fill(session: requests.Session | None = None) -> pd.DataFram
         logger.error("Cannot fetch reservoir fill: no session")
         return pd.DataFrame(columns=COLS)
 
-    try:
-        resp = session.get(BULLETIN_URL, timeout=30)
-        resp.raise_for_status()
-    except requests.RequestException as exc:
-        logger.error("Failed to fetch albufeiras bulletin: %s", exc)
-        return pd.DataFrame(columns=COLS)
+    from datetime import date
+    today = date.today()
+    # Hydrological year starts October. Current hydro year e.g. Oct 2025 → "2025"
+    hydro_year_start = today.year if today.month >= 10 else today.year - 1
+    target_years = list(range(hydro_year_start - years_back + 1, hydro_year_start + 2))
 
-    soup = BeautifulSoup(resp.text, "lxml")
-    year, month = _extract_bulletin_date(soup)
-    df = _parse_reservoir_table(soup, year, month)
+    all_frames = []
+    for yr in target_years:
+        url = f"{TABELA_BASE}?percOUvolum=0&anohi={yr}"
+        try:
+            resp = session.get(url, timeout=30)
+            resp.raise_for_status()
+            df = _parse_tabelageral(resp.text)
+            if not df.empty:
+                logger.info("Parsed %d basin-month rows for anohi=%d", len(df), yr)
+                all_frames.append(df)
+            else:
+                logger.warning("No data for anohi=%d", yr)
+        except requests.RequestException as exc:
+            logger.warning("Failed to fetch reservoirs for anohi=%d: %s", yr, exc)
 
-    if df.empty:
-        logger.warning("No reservoir data extracted for %d/%02d", year, month)
+    if not all_frames:
+        logger.warning("No reservoir data retrieved")
         _write_empty_csv()
         return pd.DataFrame(columns=COLS)
 
+    df_new = pd.concat(all_frames, ignore_index=True)
     now_iso = datetime.now(timezone.utc).isoformat()
-    df["fetched_at"] = now_iso
+    df_new["fetched_at"] = now_iso
 
     cache_dir = get_cache_dir()
     csv_path = cache_dir / CSV_NAME
 
     if csv_path.exists():
         existing = pd.read_csv(csv_path, dtype=str)
-        combined = pd.concat([existing, df.astype(str)], ignore_index=True)
-        combined.drop_duplicates(
-            subset=["albufeira_code", "year", "month"], keep="last", inplace=True
-        )
+        combined = pd.concat([existing, df_new.astype(str)], ignore_index=True)
+        combined.sort_values("fetched_at", inplace=True)
+        combined.drop_duplicates(subset=["basin", "hydro_year", "month"], keep="last", inplace=True)
+        combined.reset_index(drop=True, inplace=True)
     else:
-        combined = df.astype(str)
+        combined = df_new.astype(str)
 
     combined.to_csv(csv_path, index=False)
     logger.info(
-        "Reservoir fill saved → %s (%d rows for %d/%02d, %d total)",
-        csv_path,
-        len(df),
-        year,
-        month,
-        len(combined),
+        "Reservoir fill saved → %s (%d new rows, %d total)",
+        csv_path, len(df_new), len(combined),
     )
-    return df
+    return df_new
 
 
 def _write_empty_csv() -> None:

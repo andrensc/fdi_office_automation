@@ -1,188 +1,235 @@
 """
-snirh_fetch_temperature.py — Monthly TX/TN temperature extremes per station.
+snirh_fetch_temperature.py — Monthly temperature data from SNIRH synthesis page.
 
-Hits the SNIRH time-series AJAX endpoint for meteorological stations.
-Output: temperatura_extremos.csv (append-only).
+NOTE: The SNIRH temperatura/boletim/estacao.php endpoint is a NATIONAL SYNTHESIS page.
+It does NOT return per-station data — the cod_estacao parameter is ignored and all
+stations return identical values representing a national reference station (approx. Lisbon).
+
+Per-station time series (janela_verdados.php) requires an authenticated SNIRH account.
+Anonymous access is limited to: station catalog, reservoir fill, and national synthesis.
+
+For per-station temperature extremes, use:
+  - IPMA current observations: ipma_fetch_observations.py (live hourly readings)
+  - WorldClim/CHELSA rasters (already used by comercial_maps for climate normals)
+
+This scraper is kept for the historical national synthesis and as a placeholder for when
+authenticated access becomes available.
+
+Output: temperature_monthly.csv (append-only, deduplicated by station_code+hydro_year+month).
 """
 
 import logging
-import os
+import re
 from datetime import datetime, timezone, date
 from pathlib import Path
 
 import pandas as pd
 import requests
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
 from .snirh_session import BASE_URL, get_cache_dir, get_session
+from .snirh_station_catalog import CSV_NAME as CATALOG_CSV
 
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-DADOS_BASE_URL = f"{BASE_URL}/snirh/_dadosbase/site/paraAjax/dadosBase.php"
-CSV_NAME = "temperatura_extremos.csv"
+TEMP_BOLETIM_URL = f"{BASE_URL}/snirh/_dadossintese/temperatura/boletim/estacao.php"
+CSV_NAME = "temperature_monthly.csv"
 COLS = [
-    "station_code",
-    "station_name",
-    "year",
-    "month",
-    "tx_abs",
-    "tn_abs",
-    "source_url",
-    "fetched_at",
+    "site_id", "station_code", "station_name", "hydro_year",
+    "month", "t_mean", "t_mean_hist", "t_min", "t_max", "fetched_at",
 ]
 
-YEARS_BACK = int(os.getenv("SNIRH_YEARS_BACK", "5"))
+# Hydrological year months: October starts the year
+PT_MONTH_ABBR = {
+    "OUT": 10, "NOV": 11, "DEZ": 12,
+    "JAN": 1, "FEV": 2, "MAR": 3, "ABR": 4,
+    "MAI": 5, "JUN": 6, "JUL": 7, "AGO": 8, "SET": 9,
+}
+
+# Portugese row labels → output column name
+ROW_LABEL_MAP = {
+    "temperatura média mensal histórica": "t_mean_hist",
+    "temperatura média mensal": "t_mean",
+    "temperatura mensal mínima": "t_min",
+    "temperatura mensal máxima": "t_max",
+}
 
 
-def _build_params(station_code: str, year: int, month: int, parm: str) -> dict:
-    start = f"{year}-{month:02d}-01"
-    # Last day of the month (approximate — SNIRH accepts over-range dates)
-    end = f"{year}-{month:02d}-28"
-    return {
-        "stationType": "meteorologica",
-        "parm": parm,
-        "tmin": start,
-        "tmax": end,
-        "estacoes": station_code,
-        "anos": str(year),
-    }
+def _current_hydro_year() -> int:
+    """Return the starting year of the current hydrological year (e.g. 2025 for 2025/26)."""
+    today = date.today()
+    return today.year if today.month >= 10 else today.year - 1
 
 
-def _fetch_parm(
-    session: requests.Session,
-    station_code: str,
-    year: int,
-    month: int,
-    parm: str,
-) -> float | None:
-    params = _build_params(station_code, year, month, parm)
-    try:
-        resp = session.get(DADOS_BASE_URL, params=params, timeout=30)
-        resp.raise_for_status()
-        payload = resp.json()
-        # Payload is usually a list of dicts or nested structure
-        if isinstance(payload, list) and payload:
-            for item in payload:
-                val = item.get("valor", item.get("value", item.get("v", None)))
-                if val is not None:
+def _parse_temp_boletim(html: str) -> dict:
+    """
+    Parse the temperatura boletim page HTML.
+
+    Returns a dict: {month_int: {t_mean, t_mean_hist, t_min, t_max}}
+    Only months with at least one non-null value are included.
+    """
+    soup = BeautifulSoup(html, "lxml")
+    tables = soup.find_all("table")
+    if not tables:
+        return {}
+
+    # The data table is the last one; it has column headers OUT,NOV,...,SET,ANUAL
+    data_table = tables[-1]
+    rows = data_table.find_all("tr")
+    if not rows:
+        return {}
+
+    # First row: month headers
+    header_cells = [td.get_text(strip=True).upper() for td in rows[0].find_all(["td", "th"])]
+    # Map column index → month int (skip first label column and ANUAL)
+    col_month = {}
+    for i, h in enumerate(header_cells):
+        if h in PT_MONTH_ABBR:
+            col_month[i] = PT_MONTH_ABBR[h]
+
+    month_data: dict[int, dict] = {}
+
+    for row in rows[1:]:
+        cells = [td.get_text(strip=True) for td in row.find_all(["td", "th"])]
+        if not cells:
+            continue
+        label = cells[0].lower()
+        # Match label to output column; use longest-prefix matching
+        col_key = None
+        for pattern, key in ROW_LABEL_MAP.items():
+            if pattern in label:
+                col_key = key
+                break
+        if col_key is None:
+            continue
+
+        for idx, month in col_month.items():
+            if idx < len(cells):
+                val_str = cells[idx].strip().replace(",", ".")
+                if val_str and val_str.lower() not in ("n/d", "-", ""):
                     try:
-                        return float(val)
-                    except (ValueError, TypeError):
+                        val = float(val_str)
+                        if month not in month_data:
+                            month_data[month] = {}
+                        month_data[month][col_key] = val
+                    except ValueError:
                         pass
-        elif isinstance(payload, dict):
-            val = payload.get("valor", payload.get("value", None))
-            if val is not None:
-                try:
-                    return float(val)
-                except (ValueError, TypeError):
-                    pass
-    except (requests.RequestException, ValueError) as exc:
-        logger.debug("Parm %s station %s %d/%02d failed: %s", parm, station_code, year, month, exc)
-    return None
+
+    return month_data
 
 
-def fetch_temperature_extremes(
-    station_codes: list[str] | None = None,
-    station_names: dict[str, str] | None = None,
-    years_back: int | None = None,
+def fetch_temperature(
     session: requests.Session | None = None,
+    station_filter: list[str] | None = None,
+    years_back: int = 1,
 ) -> pd.DataFrame:
     """
-    Fetch monthly TX/TN extremes for each station in station_codes.
+    Fetch monthly temperature data for all (or filtered) meteorological stations.
 
-    If station_codes is None, tries to read from stations_catalog.csv.
-    Returns new rows DataFrame (may be empty if all requests fail).
+    station_filter: list of site_id strings to fetch; if None, uses all Meteorológica
+                    stations from stations_catalog.csv.
+    years_back: number of hydrological years to fetch (default 1 = current only).
+
+    Returns DataFrame of new rows.
     """
     if session is None:
         session = get_session()
     if session is None:
-        logger.error("Cannot fetch temperature extremes: no session")
+        logger.error("Cannot fetch temperature: no session")
         return pd.DataFrame(columns=COLS)
 
-    if years_back is None:
-        years_back = YEARS_BACK
-
-    # Load stations from catalog if not provided
-    if station_codes is None:
-        cache_dir = get_cache_dir()
-        catalog_path = cache_dir / "stations_catalog.csv"
-        if catalog_path.exists():
-            cat = pd.read_csv(catalog_path, dtype=str)
-            station_codes = cat["station_code"].dropna().unique().tolist()
-            if station_names is None:
-                station_names = dict(zip(cat["station_code"], cat["station_name"]))
-        else:
-            logger.warning("No stations_catalog.csv found; using empty station list")
-            station_codes = []
-
-    if not station_codes:
-        logger.warning("No stations to fetch temperature data for")
-        _write_empty_csv()
+    # Load station catalog
+    cache_dir = get_cache_dir()
+    catalog_path = cache_dir / CATALOG_CSV
+    if not catalog_path.exists():
+        logger.error("Station catalog not found: %s", catalog_path)
         return pd.DataFrame(columns=COLS)
 
-    if station_names is None:
-        station_names = {}
+    catalog = pd.read_csv(catalog_path, dtype=str)
+    meteo = catalog[catalog["network"].str.contains("Meteorol", na=False, case=False)]
+    if station_filter:
+        meteo = meteo[meteo["site_id"].isin(station_filter)]
 
-    today = date.today()
-    start_year = today.year - years_back
-    rows = []
+    if meteo.empty:
+        logger.warning("No meteorological stations found in catalog")
+        return pd.DataFrame(columns=COLS)
 
-    for station_code in station_codes:
-        sname = station_names.get(station_code, "")
-        for year in range(start_year, today.year + 1):
-            max_month = today.month if year == today.year else 12
-            for month in range(1, max_month + 1):
-                tx = _fetch_parm(session, station_code, year, month, "TX")
-                tn = _fetch_parm(session, station_code, year, month, "TN")
-                if tx is None and tn is None:
-                    logger.debug("No data: station %s %d/%02d", station_code, year, month)
+    hydro_year_start = _current_hydro_year()
+    target_years = list(range(hydro_year_start - years_back + 1, hydro_year_start + 1))
+    logger.info(
+        "Fetching temperature for %d stations × %d years = up to %d requests",
+        len(meteo), len(target_years), len(meteo) * len(target_years),
+    )
+
+    all_rows = []
+    ok = err = skip = 0
+
+    for _, station in meteo.iterrows():
+        site_id = station.get("site_id", "")
+        scode = station.get("station_code", "")
+        sname = station.get("station_name", "")
+        if not site_id:
+            skip += 1
+            continue
+
+        for yr in target_years:
+            url = f"{TEMP_BOLETIM_URL}?prec_anoh={yr}&cod_estacao={site_id}"
+            try:
+                resp = session.get(url, timeout=20)
+                resp.raise_for_status()
+                month_data = _parse_temp_boletim(resp.text)
+                if not month_data:
+                    skip += 1
                     continue
-                rows.append(
-                    {
-                        "station_code": station_code,
-                        "station_name": sname,
-                        "year": year,
-                        "month": month,
-                        "tx_abs": tx,
-                        "tn_abs": tn,
-                        "source_url": DADOS_BASE_URL,
-                        "fetched_at": datetime.now(timezone.utc).isoformat(),
-                    }
-                )
 
-    df = pd.DataFrame(rows, columns=COLS) if rows else pd.DataFrame(columns=COLS)
-    _append_to_csv(df)
-    return df
+                hydro_label = f"{yr}/{str(yr + 1)[-2:]}"
+                for month, vals in month_data.items():
+                    all_rows.append(
+                        {
+                            "site_id": site_id,
+                            "station_code": scode,
+                            "station_name": sname,
+                            "hydro_year": hydro_label,
+                            "month": month,
+                            "t_mean": vals.get("t_mean"),
+                            "t_mean_hist": vals.get("t_mean_hist"),
+                            "t_min": vals.get("t_min"),
+                            "t_max": vals.get("t_max"),
+                        }
+                    )
+                ok += 1
+            except requests.RequestException as exc:
+                logger.warning("Failed station %s yr=%d: %s", scode, yr, exc)
+                err += 1
 
+    logger.info("Temperature fetch done: %d ok, %d errors, %d skipped", ok, err, skip)
 
-def _write_empty_csv() -> None:
-    cache_dir = get_cache_dir()
+    if not all_rows:
+        logger.warning("No temperature data retrieved")
+        return pd.DataFrame(columns=COLS)
+
+    df_new = pd.DataFrame(all_rows, columns=COLS[:-1])
+    now_iso = datetime.now(timezone.utc).isoformat()
+    df_new["fetched_at"] = now_iso
+
     csv_path = cache_dir / CSV_NAME
-    if not csv_path.exists():
-        pd.DataFrame(columns=COLS).to_csv(csv_path, index=False)
-        logger.info("Created empty %s", csv_path)
-
-
-def _append_to_csv(df: pd.DataFrame) -> None:
-    cache_dir = get_cache_dir()
-    csv_path = cache_dir / CSV_NAME
-
-    if df.empty:
-        _write_empty_csv()
-        return
-
     if csv_path.exists():
         existing = pd.read_csv(csv_path, dtype=str)
-        combined = pd.concat([existing, df.astype(str)], ignore_index=True)
-        combined.drop_duplicates(
-            subset=["station_code", "year", "month"], keep="last", inplace=True
-        )
+        combined = pd.concat([existing, df_new.astype(str)], ignore_index=True)
+        combined.sort_values("fetched_at", inplace=True)
+        combined.drop_duplicates(subset=["site_id", "hydro_year", "month"], keep="last", inplace=True)
+        combined.reset_index(drop=True, inplace=True)
     else:
-        combined = df.astype(str)
+        combined = df_new.astype(str)
 
     combined.to_csv(csv_path, index=False)
-    logger.info("Temperature extremes saved → %s (%d total rows)", csv_path, len(combined))
+    logger.info(
+        "Temperature saved → %s (%d new rows, %d total)",
+        csv_path, len(df_new), len(combined),
+    )
+    return df_new
 
 
 if __name__ == "__main__":
@@ -191,6 +238,6 @@ if __name__ == "__main__":
 
     configure_logging()
     session = get_session()
-    result = fetch_temperature_extremes(session=session)
+    result = fetch_temperature(session)
     print(f"Fetched {len(result)} temperature rows")
     sys.exit(0)

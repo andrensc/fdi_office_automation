@@ -24,13 +24,13 @@ if __package__ is None:
     import snirh  # noqa: F401
     from snirh.snirh_session import configure_logging, get_session, get_cache_dir
     from snirh.snirh_station_catalog import fetch_station_catalog
-    from snirh.snirh_fetch_temperature import fetch_temperature_extremes
+    from snirh.snirh_fetch_temperature import fetch_temperature
     from snirh.snirh_fetch_reservoirs import fetch_reservoir_fill
     from snirh.snirh_fetch_drought import fetch_drought_index
 else:
     from .snirh_session import configure_logging, get_session, get_cache_dir
     from .snirh_station_catalog import fetch_station_catalog
-    from .snirh_fetch_temperature import fetch_temperature_extremes
+    from .snirh_fetch_temperature import fetch_temperature
     from .snirh_fetch_reservoirs import fetch_reservoir_fill
     from .snirh_fetch_drought import fetch_drought_index
 
@@ -258,7 +258,7 @@ def run_all(
                     logger.warning("No stations in bbox — skipping temperature fetch")
                     results["temperature"] = True
                 else:
-                    df = fetch_temperature_extremes(
+                    df = fetch_temperature(
                         station_codes=station_codes,
                         station_names=station_names,
                         years_back=years_back,
@@ -267,7 +267,7 @@ def run_all(
                     results["temperature"] = True
                     logger.info("Temperature done in %.1fs — %d rows", time.monotonic() - t0, len(df))
             else:
-                df = fetch_temperature_extremes(years_back=years_back, session=session)
+                df = fetch_temperature(years_back=years_back, session=session)
                 results["temperature"] = True
                 logger.info("Temperature done in %.1fs — %d rows", time.monotonic() - t0, len(df))
         except Exception as exc:
